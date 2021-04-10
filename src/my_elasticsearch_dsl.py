@@ -11,6 +11,7 @@ from elasticsearch_dsl import (
     Search
     )
 from elasticsearch.exceptions import RequestError
+from config_speech import elasticsearch_dsl_config as elastic_conf
 
 
 class ElasticClient(object):
@@ -21,7 +22,7 @@ class ElasticClient(object):
     def get_client(cls, index):
         if not ElasticClient._client:
             print("No ElasticClient")
-            hosts = "http://es.infra.welo.tv:8092"
+            hosts = elastic_conf.HOST_ELASTIC
             ElasticClient._client = connections.create_connection(hosts=hosts)
 
         if index not in ElasticClient._indexes:
@@ -64,13 +65,13 @@ class Table(Document):
     sentence = Text(analyzer='snowball', fields={'raw': Keyword()})
 
     class Index:
-        name = "parse-speech"
+        name = elastic_conf.INDEX_ELASTIC
 
 
 class ElasticPublisher():
 
     def __init__(self):
-        self.client = ElasticClient.get_client("parse-speech")
+        self.client = ElasticClient.get_client(elastic_conf.INDEX_ELASTIC)
         try:
             Table.init()
         except RequestError:

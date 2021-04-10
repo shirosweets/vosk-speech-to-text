@@ -15,14 +15,13 @@ Este repositorio es para recibir señales, realizar transcripción de video/soni
   - [Documentos del feature](#documentos-del-feature)
   - [Formatos admitidos para correr la transcripción](#formatos-admitidos-para-correr-la-transcripción)
   - [¿En dónde se puede dejar corriendo el feature?](#¿en-dónde-se-puede-dejar-corriendo-el-feature?)
-  - [¿Dónde está en Elastic?](#¿dónde-está-en-elastic?)
-    - [Mapeo de Elastic](#mapeo-de-elastic)
-    - [Cerebro](#cerebro)
-  - [Grafana (para futuro)](#grafana-(para-futuro))
-  - [Uso de Pubsub](#uso-de-pubsub)
 - [Versión de Python](#versión-de-Python-utilizada-para-crearlo)
 - [Directorios](#directorios)
 - [Configuración](#configuración)
+  - [¿Cómo configurar Elastic?](#¿cómo-configurar-elastic?)
+      - [Mapeo de Elastic](#mapeo-de-elastic)
+      - [Cerebro](#cerebro)
+  - [Uso de Pubsub](#uso-de-pubsub)
   - [Comandos](#comandos)
 - [Acerca de VOSK](#acerca-de-vosk)
   - [¿Qué es VOSK?](#¿qué-es-vosk?)
@@ -34,9 +33,15 @@ Este repositorio es para recibir señales, realizar transcripción de video/soni
 - [Ejemplo Gitlab CI/CD](#ejemplo-gitlab-CI/CD)
 - [En el futuro: NLP](#en-el-futuro:-NLP)
 - [Extra](#extra)
+  - [Grafana (para futuro)](#grafana-(para-futuro))
+- [Autor](#autor)
 
 # Feature
-Te permite recibir mensajes de señales de streaming a través de Pubsub
+En Pubsub:
+- Configuración sencilla
+- Te permite recibir mensajes de señales de streaming a través de Pubsub
+- Filtrar los mensajes según la configuración establecida
+- Configurar cantidad de procesos que se ejecutan en paralelo
 - Formatear mensajes con esta estructura de mensaje
 - Descarga archivos (.ts, .mp4, .mp3, .mkv, .wav) de los mensajes</p>
 
@@ -46,7 +51,10 @@ Te permite correr la librería de reconocimiento de voz
 - Prepara los mensajes para ser enviados por Elastic</p>
 
 En Elastic:
-- Mandar mensajes a Elastic (index)</p>
+- Configurar Host e Index
+- Inicializar el Index
+- Inicializar el Documento del Index
+- Mandar mensajes a Elastic (Index configurado)</p>
 # Instalación
 
 ## Cómo correrlo local:
@@ -99,26 +107,43 @@ El desarrollo debe realizarse mediante leer mensajes de Pubsub de la señal de s
 **Configuración necesaria**: Kubernetes</p>
 No recomendable: local
 
-Configuración necesaria para GCP:</p>
-Se debe modificar/reemplazar el archivo `config_speech/service_account.json`
-```json
-{
-  "type": "service_account",
-  "project_id": "name-proyect",
-  "private_key_id": "key",
-  "private_key": "key",
-  "client_email": "email@example.com",
-  "client_id": "id",
-  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-  "token_uri": "https://oauth2.googleapis.com/token",
-  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
-  "client_x509_cert_url": "url"
-}
-```
+## Versión de Python utilizada para crearlo
+`Python 3.8.5`
 
-## ¿Dónde está en Elastic?
+# Directorios
+- **`config`**: archivos de configuración
+
+  - **`config.env`**: archivo con las variables de entorno
+  - **`vosk_config`**: modelos de configuración de Vosk
+
+- **`images`**: imágenes del README del repositorio 
+
+- **`files`**: archivos que se van descargando para aplicarle Vosk
+
+  - **`global_test`**: chunks del canal `GLOBAL TEST`
+
+- **`logs`**: configuración de los logs
+
+  - **`parse_logs`**: logs de los parse
+
+- **`src`**: código
+  
+  - **`test`**: archivos para utilizar en los test
+  - **`examples`**: archivos para tener en cuenta
+
+# Configuración
+Esto cambiará en un futuro, pero actualmente se debe hacer en el mismo repositorio:
+
+1) Se debe configurar los canales que pueden acceder a esta funcionalidad en: `config/channel_config.py`
+- Añadir un nuevo canal: agregarlo al diccionario `CHANNELS`.
+- Eliminar un nuevo canal: eliminarlo del diccionario `CHANNELS`.
+2) Configurar idiomas del speech en: `config/vosk_config` cada archivo `model_` es un idioma añadido y configurado. Si se desea añadir un nuevo idioma se debe establecer la lógica para detectarlo.
+3) Cada modelo tiene una manera diferente de realizar el output del speech, por lo tanto se debe tener en cuenta esto para poder procesar los mensajes, parsearlos y mandarlos a elastic. 
+4) Los modelos pueden ser añadidos directamente o descargados.
+
+## ¿Cómo configurar Elastic?
 Elastic es la herramienta principal para poder realizar las búsquedas de texto.
-Todos los mensajes enviados se encuentran en el index qque se configure en `INDEX_DSL` del archivo `config_speech/elasticsearch-dsl_config.py` (recordar que uno debe tener ya creado el servidor en Elasticsearch para poder acceder al index)</p>
+Todos los mensajes enviados se encuentran en el index qque se configure en `INDEX_ELASTIC` del archivo `config_speech/elasticsearch_dsl_config.py` (recordar que uno debe tener ya creado el servidor en Elasticsearch para poder acceder al index y configurar el host en `HOST_ELASTIC`)</p>
 Si se desea cambiar la configuración del mapeo se debe borrar el index, inicializarlo nuevamente con el documento modificado.
 ### Mapeo de Elastic
 ```python
@@ -176,59 +201,46 @@ Si se desea cambiar la configuración del mapeo se debe borrar el index, inicial
   }
 }
 ```
-
 ### Cerebro
 Esta herramienta nos sirve para poder visualizar los indexs, mapeos, cantidad de espacio utilizado, y cantidad de documentos de elastic. </p>
 La forma más sencilla de correrlo es con su propio [docker](https://hub.docker.com/r/lmenezes/cerebro/)</p>
 
-`docker run -e CEREBRO_PORT=8092 -p 8092:8092 lmenezes/cerebro`</p>
+`docker run -e CEREBRO_PORT=8000 -p 8000:8000 lmenezes/cerebro`</p>
 
 Ir al puerto levantado:</p>
 
-[http://localhost:8092/#/connect](http://localhost:8092/#/connect)</p>
+[http://localhost:8000/#/connect](http://localhost:8000/#/connect)</p>
 
 Luego ingresar el servidor de elastic en el Node address.
 
-## Grafana (para futuro)
-Permite mandar alertas, crear queries para visualizar en gráficos y realizar consultas.
-
 ## Uso de Pubsub
 Recibe las señales de chunks en streaming por mensajes de los cuales se deben filtrar los canales que queremos y "preparar" dichos mensajes.</p>
-Actualmente se encuentra escuchando la suscripción [projects/welo-feeds/subscriptions/chunks_to_speech](https://console.cloud.google.com/cloudpubsub/subscription/detail/chunks_to_speech?project=welo-feeds) con el tópico [projects/welo-feeds/topics/chunk_processed](https://console.cloud.google.com/cloudpubsub/topic/detail/chunk_processed?project=welo-feeds)
-
-## Versión de Python utilizada para crearlo
-`Python 3.8.5`
-
-# Directorios
-- **`config`**: archivos de configuración
-
-  - **`config.env`**: archivo con las variables de entorno
-  - **`vosk_config`**: modelos de configuración de Vosk
-
-- **`images`**: imágenes del README del repositorio 
-
-- **`files`**: archivos que se van descargando para aplicarle Vosk
-
-  - **`global_test`**: chunks del canal `GLOBAL TEST`
-
-- **`logs`**: configuración de los logs
-
-  - **`parse_logs`**: logs de los parse
-
-- **`src`**: código
-  
-  - **`test`**: archivos para utilizar en los test
-  - **`examples`**: archivos para tener en cuenta
-
-# Configuración
-Esto cambiará en un futuro, pero actualmente se debe hacer en el mismo repositorio:
-
-1) Se debe configurar los canales que pueden acceder a esta funcionalidad en: `config/channel_config.py`
-- Añadir un nuevo canal: agregarlo al diccionario `CHANNELS`.
-- Eliminar un nuevo canal: eliminarlo del diccionario `CHANNELS`.
-2) Configurar idiomas del speech en: `config/vosk_config` cada archivo `model_` es un idioma añadido y configurado. Si se desea añadir un nuevo idioma se debe establecer la lógica para detectarlo.
-3) Cada modelo tiene una manera diferente de realizar el output del speech, por lo tanto se debe tener en cuenta esto para poder procesar los mensajes, parsearlos y mandarlos a elastic. 
-4) Los modelos pueden ser añadidos directamente o descargados.
+La configuración para esto debe realizarse en `src/my_pubsub.py`:</p>
+```python
+class Pubsub():
+    def __init__(self):
+        PROJECT_PATH = "projects/project_name"
+        TOPIC_NAME = 'topic_name'
+        self.TOPIC_PATH = f"{PROJECT_PATH}/topics/"+TOPIC_NAME
+        self.SUBSCRIPTION_PATH = f"{PROJECT_PATH}/subscriptions/"+'topic_name'
+        self._set_google_credentials()
+```
+Configuración necesaria para GCP:</p>
+Se debe modificar/reemplazar el archivo `config_speech/service_account.json`
+```json
+{
+  "type": "service_account",
+  "project_id": "name-proyect",
+  "private_key_id": "key",
+  "private_key": "key",
+  "client_email": "email@example.com",
+  "client_id": "id",
+  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+  "token_uri": "https://oauth2.googleapis.com/token",
+  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+  "client_x509_cert_url": "url"
+}
+```
 
 ## Comandos
 Ver los procesos corriendo en background:   
@@ -282,13 +294,16 @@ Este es el listado de todos los idiomas que puede expandirse este fetuare:
 La idea es poder crear nuestros propios modelos de VOSK para cada idioma añadiendole redes neuronales las cuales serían entrenadas con [NLP](https://www.nltk.org/). Esto supone una enorme expansión de esta funcionalidad para el futuro.
 
 # Ejemplo Actions Github
-Añadí un ejemplo básico de actions con el archivo `check_codestyle.yml` con su `requirements_tci.txt`
+Añadí un ejemplo básico de actions con el archivo `check_codestyle.yml` con su `requirements_tci.txt`</p>
+- Checkea el estilo del código (PEP8)
 # Ejemplo Gitlab CI/CD
 Añadí un ejemplo básico de `.gitlab-ci.yml` con su `requirements_tci.txt`
-
+- Checkea el estilo del código (PEP8)
 # Extra
 https://shields.io/</p>
 https://pypi.org/project/python-dotenv/
+## Grafana (para futuro)
+Permite mandar alertas, crear queries para visualizar en gráficos y realizar consultas.
 
 # Autor
 Github: [shirosweets](https://github.com/shirosweets)</p>
