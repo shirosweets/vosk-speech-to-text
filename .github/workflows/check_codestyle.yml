@@ -4,11 +4,13 @@ on:
   push:
     branches:
     - $default-branch
+    - main
     - master
     - dev
   pull_request:
     branches:
     - $default-branch
+    - main
     - master
     - dev
   
