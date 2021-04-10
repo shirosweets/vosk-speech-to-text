@@ -1,0 +1,9 @@
+stages:
+  - check
+
+codestyle:
+  image: python:3.8.5
+  stage: check
+  script:
+    - pip3 install -r requirements_tci.txt
+    - pycodestyle . --exclude=envs,testing,settings.py,test*,__init__.py,guide.md,channel_config.py

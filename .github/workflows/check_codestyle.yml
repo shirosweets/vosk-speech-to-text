@@ -1,0 +1,36 @@
+name: vosk-speech-to-text
+
+on:
+  push:
+    branches:
+    - $default-branch
+    - master
+    - dev
+  pull_request:
+    branches:
+    - $default-branch
+    - master
+    - dev
+  
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Install requirements_tci
+        run: pip3 install -r requirements_tci.txt
+
+      - name: Check Python version
+        run: python3 --version
+
+      - name: Check PEP8
+        run: |
+          pip3 install --upgrade pycodestyle
+          pycodestyle . --exclude=envs,testing,settings.py,test*,__init__.py,guide.md,channel_config.py
+
+      - name: Repository Author
+        run: |
+          echo @shirosweets,
+          echo Valentina Solange Vispo ≧◠ᴥ◠≦,
+          echo email: vsv.dev.soft@gmail.com
